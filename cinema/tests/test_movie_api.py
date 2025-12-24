@@ -1,3 +1,4 @@
+import shutil
 import tempfile
 import os
 
@@ -86,6 +87,10 @@ class MovieImageUploadTests(TestCase):
 
     def tearDown(self):
         self.movie.image.delete()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def test_upload_image_to_movie(self):
         """Test uploading an image to movie"""
@@ -215,6 +220,34 @@ class MovieAPIViewTests(TestCase):
             {"title": "Title"},
         )
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_movie_default_user_read_only(self):
+        self.user_admin.is_staff = False
+        res = self.client.get(MOVIE_URL)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        res = self.client.get(
+            reverse("cinema:movie-detail", kwargs={"pk": self.movie.id})
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        res = self.client.post(
+            MOVIE_URL,
+            {"title": "Title", "description": "Description", "duration": 90},
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        res = self.client.put(
+            reverse("cinema:movie-detail", kwargs={"pk": self.movie.id}),
+            {"title": "Title", "description": "Description", "duration": 90},
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        res = self.client.patch(
+            reverse("cinema:movie-detail", kwargs={"pk": self.movie.id}),
+            {"title": "Title"},
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        res = self.client.delete(
+            reverse("cinema:movie-detail", kwargs={"pk": self.movie.id})
+        )
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_movie_delete_forbidden_for_all(self):
         url = reverse("cinema:movie-detail", kwargs={"pk": self.movie.id})
